@@ -1,0 +1,816 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Minha Biblioteca Digital</title>
+    
+    <!-- PWA -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#0D2E5A">
+    
+    <!-- Tipografia -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&family=Open+Sans:wght@400;600&display=swap" rel="stylesheet">
+    
+    <!-- Ícones -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <style>
+        /* ==========================================================================
+           DESIGN SYSTEM & VARIÁVEIS (Swiss Design)
+           ========================================================================== */
+        :root {
+            --cms-navy: #0D2E5A;
+            --cms-blue: #1B6CB5;
+            --cms-green: #1E8A4A;
+            --cms-yellow: #F5C400;
+            --cms-off: #F7F8FA;
+            --cms-ink: #111827;
+            --cms-border: #E5E7EB;
+            
+            --font-title: 'Montserrat', sans-serif;
+            --font-body: 'Open Sans', sans-serif;
+        }
+
+        /* Reset Básico */
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            background-color: var(--cms-off);
+            color: var(--cms-ink);
+            font-family: var(--font-body);
+            line-height: 1.6;
+            -webkit-font-smoothing: antialiased;
+            overflow-x: hidden;
+        }
+
+        h1, h2, h3, h4 { font-family: var(--font-title); font-weight: 700; }
+        a { text-decoration: none; color: inherit; }
+        button { border: none; background: none; cursor: pointer; font-family: inherit; }
+
+        /* ==========================================================================
+           LAYOUT PRINCIPAL
+           ========================================================================== */
+        .app-container {
+            display: grid;
+            grid-template-columns: 280px 1fr;
+            min-height: 100vh;
+        }
+
+        @media (max-width: 900px) {
+            .app-container { grid-template-columns: 1fr; }
+        }
+
+        /* ==========================================================================
+           SIDEBAR / FILTROS
+           ========================================================================== */
+        .sidebar {
+            background-color: #ffffff;
+            border-right: 1px solid var(--cms-border);
+            padding: 2rem;
+            display: flex;
+            flex-direction: column;
+            gap: 2rem;
+            position: sticky;
+            top: 0;
+            height: 100vh;
+            overflow-y: auto;
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            color: var(--cms-navy);
+            font-size: 1.25rem;
+        }
+
+        .search-box {
+            position: relative;
+        }
+        
+        .search-box input {
+            width: 100%;
+            padding: 0.75rem 1rem 0.75rem 2.5rem;
+            border: 1px solid var(--cms-border);
+            border-radius: 4px;
+            font-family: var(--font-body);
+            font-size: 0.9rem;
+            transition: border-color 0.2s;
+        }
+
+        .search-box input:focus {
+            outline: none;
+            border-color: var(--cms-blue);
+        }
+
+        .search-box i {
+            position: absolute;
+            left: 0.75rem;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #6B7280;
+            width: 18px;
+            height: 18px;
+        }
+
+        .filter-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .filter-group h3 {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: #6B7280;
+            margin-bottom: 0.5rem;
+        }
+
+        .filter-btn {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            width: 100%;
+            padding: 0.5rem;
+            border-radius: 4px;
+            font-size: 0.9rem;
+            text-align: left;
+            transition: all 0.2s;
+            color: var(--cms-ink);
+        }
+
+        .filter-btn:hover { background-color: var(--cms-off); }
+        .filter-btn.active {
+            background-color: var(--cms-navy);
+            color: white;
+            font-weight: 600;
+        }
+
+        /* ==========================================================================
+           MAIN CONTENT
+           ========================================================================== */
+        .main-content {
+            padding: 3rem 4rem;
+            max-width: 1400px;
+        }
+
+        @media (max-width: 900px) {
+            .main-content { padding: 2rem; }
+            .sidebar { height: auto; position: static; border-right: none; border-bottom: 1px solid var(--cms-border); }
+        }
+
+        .header-actions {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+        }
+
+        .sort-select {
+            padding: 0.5rem 1rem;
+            border: 1px solid var(--cms-border);
+            border-radius: 4px;
+            font-family: var(--font-body);
+            background: white;
+            cursor: pointer;
+        }
+
+        /* ==========================================================================
+           GRID E CARDS (Notion/Netflix style)
+           ========================================================================== */
+        .section-title {
+            margin-bottom: 1.5rem;
+            font-size: 1.5rem;
+            color: var(--cms-navy);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+            gap: 2rem;
+            margin-bottom: 4rem;
+        }
+
+        .card {
+            background: white;
+            border: 1px solid var(--cms-border);
+            border-radius: 6px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            transition: transform 0.2s, box-shadow 0.2s;
+            cursor: pointer;
+            position: relative;
+        }
+
+        .card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05);
+        }
+
+        .card-thumb {
+            height: 140px;
+            background-color: var(--cms-off);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            border-bottom: 1px solid var(--cms-border);
+            overflow: hidden;
+        }
+
+        .card-thumb img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .card-fallback-icon {
+            color: var(--cms-blue);
+            opacity: 0.5;
+        }
+
+        .type-badge {
+            position: absolute;
+            top: 0.75rem;
+            left: 0.75rem;
+            background: var(--cms-navy);
+            color: white;
+            font-size: 0.65rem;
+            padding: 0.2rem 0.5rem;
+            border-radius: 3px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            font-weight: 600;
+        }
+
+        .type-badge.pdf { background: #E53E3E; }
+        .type-badge.link { background: var(--cms-green); }
+        .type-badge.doc { background: var(--cms-blue); }
+
+        .fav-btn {
+            position: absolute;
+            top: 0.75rem;
+            right: 0.75rem;
+            background: white;
+            border: 1px solid var(--cms-border);
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--cms-ink);
+            z-index: 2;
+        }
+        
+        .fav-btn.active { color: var(--cms-yellow); border-color: var(--cms-yellow); }
+
+        .card-content {
+            padding: 1.25rem;
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .card-title {
+            font-size: 1rem;
+            margin-bottom: 0.5rem;
+            line-height: 1.4;
+        }
+
+        .card-meta {
+            font-size: 0.75rem;
+            color: #6B7280;
+            margin-bottom: 1rem;
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+        }
+
+        .card-desc {
+            font-size: 0.85rem;
+            color: #4B5563;
+            margin-bottom: 1rem;
+            flex-grow: 1;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .card-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.4rem;
+        }
+
+        .tag {
+            background: var(--cms-off);
+            color: #4B5563;
+            font-size: 0.7rem;
+            padding: 0.2rem 0.5rem;
+            border-radius: 3px;
+            border: 1px solid var(--cms-border);
+        }
+
+        /* ==========================================================================
+           MODAL / VISUALIZADOR
+           ========================================================================== */
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(17, 24, 39, 0.8);
+            backdrop-filter: blur(4px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s;
+        }
+
+        .modal-overlay.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .modal-content {
+            background: white;
+            width: 90%;
+            height: 90%;
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+            transform: scale(0.95);
+            transition: transform 0.3s;
+        }
+
+        .modal-overlay.active .modal-content {
+            transform: scale(1);
+        }
+
+        .modal-header {
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid var(--cms-border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: var(--cms-off);
+        }
+
+        .modal-close {
+            background: white;
+            border: 1px solid var(--cms-border);
+            width: 36px; height: 36px;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .modal-close:hover { background: #f3f4f6; }
+
+        .modal-body {
+            flex-grow: 1;
+            position: relative;
+            background: #e5e7eb;
+        }
+
+        .modal-body iframe, .modal-body embed {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+        
+        .empty-state {
+            grid-column: 1 / -1;
+            text-align: center;
+            padding: 4rem 2rem;
+            color: #6B7280;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="app-container">
+        <!-- SIDEBAR -->
+        <aside class="sidebar">
+            <div class="brand">
+                <i data-lucide="library"></i>
+                <h1>Biblioteca</h1>
+            </div>
+
+            <div class="search-box">
+                <i data-lucide="search"></i>
+                <input type="text" id="searchInput" placeholder="Buscar título ou tag...">
+            </div>
+
+            <nav class="filter-group">
+                <h3>Menu</h3>
+                <button class="filter-btn active" data-view="all">
+                    <span style="display:flex; gap:8px"><i data-lucide="layout-grid" style="width:18px"></i> Tudo</span>
+                </button>
+                <button class="filter-btn" data-view="favorites">
+                    <span style="display:flex; gap:8px"><i data-lucide="star" style="width:18px"></i> Favoritos</span>
+                </button>
+                <button class="filter-btn" data-view="history">
+                    <span style="display:flex; gap:8px"><i data-lucide="clock" style="width:18px"></i> Recentes</span>
+                </button>
+            </nav>
+
+            <div class="filter-group" id="categoryFilters">
+                <h3>Categorias</h3>
+                <!-- Preenchido via JS -->
+            </div>
+
+            <div class="filter-group" id="typeFilters">
+                <h3>Tipo de Arquivo</h3>
+                <button class="filter-btn" data-type="all">Todos</button>
+                <button class="filter-btn" data-type="html">Páginas Web (HTML)</button>
+                <button class="filter-btn" data-type="pdf">Documentos (PDF)</button>
+                <button class="filter-btn" data-type="link">Links Externos</button>
+            </div>
+        </aside>
+
+        <!-- MAIN CONTENT -->
+        <main class="main-content">
+            <header class="header-actions">
+                <h2 id="pageTitle" style="font-size: 2rem; color: var(--cms-navy)">Visão Geral</h2>
+                <select id="sortSelect" class="sort-select">
+                    <option value="recent">Mais Recentes</option>
+                    <option value="az">Ordem Alfabética (A-Z)</option>
+                    <option value="za">Ordem Alfabética (Z-A)</option>
+                </select>
+            </header>
+
+            <!-- Seção Destaques -->
+            <div id="featuredSection">
+                <h2 class="section-title"><i data-lucide="zap"></i> Destaques</h2>
+                <div class="grid" id="featuredGrid"></div>
+            </div>
+
+            <!-- Grid Principal -->
+            <div id="mainSection">
+                <h2 class="section-title" id="mainSectionTitle"><i data-lucide="folder"></i> Todos os Arquivos</h2>
+                <div class="grid" id="mainGrid"></div>
+            </div>
+        </main>
+    </div>
+
+    <!-- MODAL VISUALIZADOR -->
+    <div class="modal-overlay" id="viewerModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modalTitle">Visualizador</h3>
+                <div style="display: flex; gap: 10px;">
+                    <a id="modalExternalLink" href="#" target="_blank" class="modal-close" title="Abrir em nova aba">
+                        <i data-lucide="external-link"></i>
+                    </a>
+                    <button class="modal-close" id="closeModalBtn" title="Fechar">
+                        <i data-lucide="x"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="modal-body" id="modalBody">
+                <!-- Conteúdo injetado via JS (iframe ou embed) -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        /* ==========================================================================
+           DADOS DE DEMONSTRAÇÃO (Mock Fallback)
+           Caso a API do Google Sheets não esteja configurada ou falhe.
+           ========================================================================== */
+        const MOCK_DATA = [
+            { id: "1", title: "Guia de HTML5", type: "html", url: "https://example.com", thumbnail: "", category: "Desenvolvimento", tags: "web,frontend", featured: true, created_at: "2026-03-24", description: "Referência completa de tags HTML5." },
+            { id: "2", title: "Clean Code", type: "pdf", url: "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf", thumbnail: "", category: "Engenharia", tags: "livro,boas práticas", featured: true, created_at: "2026-03-20", description: "Resumo dos princípios de Clean Code." },
+            { id: "3", title: "Repositório GitHub", type: "link", url: "https://github.com", thumbnail: "https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png", category: "Ferramentas", tags: "git,código", featured: false, created_at: "2026-03-21", description: "Link rápido para repositórios." },
+            { id: "4", title: "Planilha Financeira", type: "doc", url: "#", thumbnail: "", category: "Pessoal", tags: "finanças,excel", featured: false, created_at: "2026-02-15", description: "Template de organização financeira 2026." },
+            { id: "5", title: "Artigo: UI/UX", type: "html", url: "https://example.com", thumbnail: "", category: "Design", tags: "ui,ux,layout", featured: false, created_at: "2026-03-10", description: "Tendências de design minimalista." }
+        ];
+
+        /* ==========================================================================
+           ESTADO DA APLICAÇÃO
+           ========================================================================== */
+        // Substitua pela URL gerada pelo Google Apps Script
+        const API_URL = "https://script.google.com/macros/s/AKfycbx0-gMreCrjYUQptwXvp_KCXukQ0KNo6YbPqaUdyeAQVBQYHFKRUe484rroQEcrkZrO9A/exec"; 
+        
+        let db = []; // Todos os itens
+        let favorites = JSON.parse(localStorage.getItem('cms_favorites') || '[]');
+        let history = JSON.parse(localStorage.getItem('cms_history') || '[]'); // Array de IDs
+        
+        let state = {
+            view: 'all', // all, favorites, history
+            category: 'all',
+            type: 'all',
+            search: '',
+            sort: 'recent'
+        };
+
+        /* ==========================================================================
+           INICIALIZAÇÃO
+           ========================================================================== */
+        async function initApp() {
+            lucide.createIcons();
+            
+            try {
+                if (!API_URL) throw new Error("API não configurada. Usando dados locais.");
+                const res = await fetch(API_URL);
+                if(!res.ok) throw new Error("Erro no fetch");
+                db = await res.json();
+            } catch (error) {
+                console.log(error.message);
+                db = MOCK_DATA; // Fallback
+            }
+
+            setupEventListeners();
+            buildSidebar();
+            render();
+            
+            // PWA Service Worker
+            if ('serviceWorker' in navigator && (window.location.protocol === 'http:' || window.location.protocol === 'https:')) {
+                navigator.serviceWorker.register('sw.js')
+                    .catch(e => console.log('SW não registrado neste ambiente:', e.message));
+            }
+        }
+
+        /* ==========================================================================
+           RENDERIZAÇÃO PRINCIPAL
+           ========================================================================== */
+        function render() {
+            let filtered = db.filter(item => {
+                // 1. View (All, Favs, History)
+                if (state.view === 'favorites' && !favorites.includes(item.id)) return false;
+                if (state.view === 'history' && !history.includes(item.id)) return false;
+                
+                // 2. Categoria
+                if (state.category !== 'all' && item.category !== state.category) return false;
+                
+                // 3. Tipo
+                if (state.type !== 'all' && item.type !== state.type) return false;
+                
+                // 4. Busca
+                if (state.search) {
+                    const term = state.search.toLowerCase();
+                    const matchTitle = item.title.toLowerCase().includes(term);
+                    const matchTags = item.tags.toLowerCase().includes(term);
+                    if (!matchTitle && !matchTags) return false;
+                }
+                
+                return true;
+            });
+
+            // Ordenação
+            filtered.sort((a, b) => {
+                if (state.sort === 'recent') return new Date(b.created_at) - new Date(a.created_at);
+                if (state.sort === 'az') return a.title.localeCompare(b.title);
+                if (state.sort === 'za') return b.title.localeCompare(a.title);
+                return 0;
+            });
+
+            // Seção de Destaques (Só aparece na View 'all' sem filtros de texto)
+            const featuredContainer = document.getElementById('featuredSection');
+            if (state.view === 'all' && state.category === 'all' && state.type === 'all' && !state.search) {
+                const featured = filtered.filter(i => i.featured);
+                if (featured.length > 0) {
+                    featuredContainer.style.display = 'block';
+                    document.getElementById('featuredGrid').innerHTML = featured.map(createCardHTML).join('');
+                } else {
+                    featuredContainer.style.display = 'none';
+                }
+            } else {
+                featuredContainer.style.display = 'none';
+            }
+
+            // Grid Principal
+            const mainGrid = document.getElementById('mainGrid');
+            
+            // Se estiver na view de destaques, remover os destaques do grid principal para não duplicar
+            let mainItems = filtered;
+            if (featuredContainer.style.display === 'block') {
+                mainItems = filtered.filter(i => !i.featured);
+            }
+
+            if (mainItems.length === 0) {
+                mainGrid.innerHTML = `
+                    <div class="empty-state">
+                        <i data-lucide="inbox" style="width:48px; height:48px; margin-bottom:1rem; opacity:0.5"></i>
+                        <h3>Nenhum arquivo encontrado</h3>
+                        <p>Tente ajustar seus filtros ou busca.</p>
+                    </div>`;
+            } else {
+                mainGrid.innerHTML = mainItems.map(createCardHTML).join('');
+            }
+            
+            updatePageTitle();
+            lucide.createIcons();
+        }
+
+        /* ==========================================================================
+           CONSTRUÇÃO DE COMPONENTES
+           ========================================================================== */
+        function createCardHTML(item) {
+            const isFav = favorites.includes(item.id);
+            const favIcon = isFav ? '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>' : '<i data-lucide="star"></i>';
+            
+            // Ícone de Fallback baseado no tipo
+            let iconName = 'file';
+            if(item.type === 'pdf') iconName = 'file-text';
+            if(item.type === 'html') iconName = 'globe';
+            if(item.type === 'link') iconName = 'link';
+            if(item.type === 'doc') iconName = 'file-archive';
+
+            const thumbnailHTML = item.thumbnail 
+                ? `<img src="${item.thumbnail}" loading="lazy" alt="${item.title}">`
+                : `<i data-lucide="${iconName}" class="card-fallback-icon" style="width:48px; height:48px;"></i>`;
+
+            const tagsHTML = item.tags.split(',')
+                .map(t => t.trim())
+                .filter(t => t)
+                .map(t => `<span class="tag">${t}</span>`)
+                .join('');
+
+            return `
+                <article class="card" onclick="openItem('${item.id}')">
+                    <button class="fav-btn ${isFav ? 'active' : ''}" onclick="toggleFav(event, '${item.id}')" title="Favoritar">
+                        ${favIcon}
+                    </button>
+                    <div class="card-thumb">
+                        <span class="type-badge ${item.type}">${item.type}</span>
+                        ${thumbnailHTML}
+                    </div>
+                    <div class="card-content">
+                        <h3 class="card-title">${item.title}</h3>
+                        <div class="card-meta">
+                            <span>${item.category}</span> • 
+                            <span>${new Date(item.created_at).toLocaleDateString('pt-BR')}</span>
+                        </div>
+                        <p class="card-desc">${item.description}</p>
+                        <div class="card-tags">
+                            ${tagsHTML}
+                        </div>
+                    </div>
+                </article>
+            `;
+        }
+
+        function buildSidebar() {
+            // Extrair categorias únicas
+            const categories = [...new Set(db.map(i => i.category))].sort();
+            const catContainer = document.getElementById('categoryFilters');
+            
+            let html = '<button class="filter-btn active" data-cat="all">Todas as Categorias</button>';
+            categories.forEach(cat => {
+                html += `<button class="filter-btn" data-cat="${cat}">${cat}</button>`;
+            });
+            catContainer.innerHTML = html;
+        }
+
+        function updatePageTitle() {
+            const titleEl = document.getElementById('pageTitle');
+            if(state.view === 'favorites') titleEl.textContent = 'Meus Favoritos';
+            else if(state.view === 'history') titleEl.textContent = 'Acessados Recentemente';
+            else if(state.category !== 'all') titleEl.textContent = `Categoria: ${state.category}`;
+            else titleEl.textContent = 'Visão Geral';
+        }
+
+        /* ==========================================================================
+           INTERAÇÕES & LOGICA
+           ========================================================================== */
+        function setupEventListeners() {
+            // Busca
+            document.getElementById('searchInput').addEventListener('input', (e) => {
+                state.search = e.target.value;
+                render();
+            });
+
+            // Ordenação
+            document.getElementById('sortSelect').addEventListener('change', (e) => {
+                state.sort = e.target.value;
+                render();
+            });
+
+            // Filtros de View (All, Fav, History)
+            document.querySelectorAll('[data-view]').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    document.querySelectorAll('[data-view]').forEach(b => b.classList.remove('active'));
+                    e.currentTarget.classList.add('active');
+                    state.view = e.currentTarget.dataset.view;
+                    // Reset outros filtros ao mudar view
+                    state.category = 'all';
+                    state.type = 'all';
+                    updateSidebarUI();
+                    render();
+                });
+            });
+
+            // Filtros de Tipo
+            document.querySelectorAll('[data-type]').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    document.querySelectorAll('[data-type]').forEach(b => b.classList.remove('active'));
+                    e.currentTarget.classList.add('active');
+                    state.type = e.currentTarget.dataset.type;
+                    render();
+                });
+            });
+
+            // Filtros de Categoria (Delegação de eventos pois são dinâmicos)
+            document.getElementById('categoryFilters').addEventListener('click', (e) => {
+                if(e.target.tagName === 'BUTTON') {
+                    document.querySelectorAll('[data-cat]').forEach(b => b.classList.remove('active'));
+                    e.target.classList.add('active');
+                    state.category = e.target.dataset.cat;
+                    render();
+                }
+            });
+
+            // Modal
+            document.getElementById('closeModalBtn').addEventListener('click', closeModal);
+        }
+
+        function updateSidebarUI() {
+            document.querySelectorAll('[data-cat]').forEach(b => {
+                b.classList.toggle('active', b.dataset.cat === state.category);
+            });
+            document.querySelectorAll('[data-type]').forEach(b => {
+                b.classList.toggle('active', b.dataset.type === state.type);
+            });
+        }
+
+        function toggleFav(event, id) {
+            event.stopPropagation(); // Evita abrir o modal
+            if(favorites.includes(id)) {
+                favorites = favorites.filter(f => f !== id);
+            } else {
+                favorites.push(id);
+            }
+            localStorage.setItem('cms_favorites', JSON.stringify(favorites));
+            render(); // Re-render para atualizar o ícone
+        }
+
+        function addToHistory(id) {
+            history = history.filter(h => h !== id); // Remove se já existe
+            history.unshift(id); // Adiciona no começo
+            if(history.length > 20) history.pop(); // Limite de 20
+            localStorage.setItem('cms_history', JSON.stringify(history));
+        }
+
+        /* ==========================================================================
+           VISUALIZADOR (MODAL)
+           ========================================================================== */
+        function openItem(id) {
+            const item = db.find(i => i.id === id);
+            if(!item) return;
+
+            addToHistory(id);
+
+            // Ação baseada no tipo
+            if(item.type === 'link') {
+                window.open(item.url, '_blank');
+                return;
+            }
+            if(item.type === 'doc') {
+                // Para documentos genéricos, tenta abrir/baixar
+                window.open(item.url, '_blank');
+                return;
+            }
+
+            // HTML e PDF abrem no Modal
+            document.getElementById('modalTitle').textContent = item.title;
+            document.getElementById('modalExternalLink').href = item.url;
+            
+            const modalBody = document.getElementById('modalBody');
+            
+            if(item.type === 'pdf') {
+                modalBody.innerHTML = `<embed src="${item.url}" type="application/pdf">`;
+            } else if (item.type === 'html') {
+                modalBody.innerHTML = `<iframe src="${item.url}"></iframe>`;
+            }
+
+            document.getElementById('viewerModal').classList.add('active');
+            document.body.style.overflow = 'hidden'; // Evita scroll do fundo
+        }
+
+        function closeModal() {
+            document.getElementById('viewerModal').classList.remove('active');
+            document.body.style.overflow = '';
+            document.getElementById('modalBody').innerHTML = ''; // Limpa iframe para parar vídeos/áudios
+        }
+
+        // Boot
+        window.addEventListener('DOMContentLoaded', initApp);
+    </script>
+</body>
+</html>
