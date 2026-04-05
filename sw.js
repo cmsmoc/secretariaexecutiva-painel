@@ -1,35 +1,27 @@
-self.addEventListener('fetch', event => {
-  if (event.request.method !== 'GET') return;
-  if (!event.request.url.startsWith('http')) return;
+const CACHE_NAME = 'cms-cache-v2';
 
-  if (event.request.url.includes('script.google.com')) {
-    event.respondWith(fetch(event.request).catch(() =>
-      new Response(JSON.stringify([]), {
-        headers: { 'Content-Type': 'application/json' }
-      })
-    ));
-    return;
-  }
+self.addEventListener('fetch', event => {
+  // Ignora tudo que não for GET (como os POSTs de upload)
+  if (event.request.method !== 'GET' || !event.request.url.startsWith('http')) return;
+
+  // Não intercepta nem faz cache da API do Google
+  if (event.request.url.includes('script.google.com')) return;
 
   event.respondWith(
-    caches.match(event.request).then(cachedResponse => {
-
-      const fetchPromise = fetch(event.request).then(networkResponse => {
-
-        if (!networkResponse || networkResponse.status !== 200) {
-          return networkResponse;
+    fetch(event.request)
+      .then(response => {
+        // Se a requisição deu certo, salva no cache e retorna
+        if (response && response.status === 200) {
+          const responseToCache = response.clone();
+          caches.open(CACHE_NAME).then(cache => {
+            cache.put(event.request, responseToCache);
+          });
         }
-
-        const clone = networkResponse.clone();
-
-        caches.open(CACHE_NAME).then(cache => {
-          cache.put(event.request, clone);
-        });
-
-        return networkResponse;
-      }).catch(() => cachedResponse);
-
-      return cachedResponse || fetchPromise;
-    })
+        return response;
+      })
+      .catch(() => {
+        // Se a internet cair, tenta pegar do cache silenciosamente (sem dar erro vermelho)
+        return caches.match(event.request);
+      })
   );
 });

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -18,6 +19,27 @@
     <script src="https://unpkg.com/lucide@latest"></script>
 
     <style>
+
+        /* --- NOVOS ESTILOS PARA LISTA E FORMULÁRIO --- */
+.view-toggles { display: flex; gap: 5px; background: white; padding: 4px; border-radius: 6px; border: 1px solid var(--cms-border); }
+.view-btn { padding: 4px 8px; border-radius: 4px; color: #6b7280; }
+.view-btn.active { background: var(--cms-off); color: var(--cms-navy); }
+
+/* Layout de Lista */
+.grid.list-view { display: flex; flex-direction: column; gap: 1rem; }
+.grid.list-view .card { flex-direction: row; height: 120px; align-items: center; padding-right: 1rem; }
+.grid.list-view .card-thumb { width: 160px; height: 100%; border-bottom: none; border-right: 1px solid var(--cms-border); flex-shrink: 0; }
+.grid.list-view .card-content { flex-direction: row; align-items: center; gap: 1rem; flex-grow: 1; padding: 0 1rem; }
+.grid.list-view .card-desc { display: none; /* Esconde descrição na lista para economizar espaço */ }
+.grid.list-view .card-title { margin-bottom: 0; min-width: 200px; }
+
+/* Modal de Cadastro */
+.form-group { margin-bottom: 1rem; display: flex; flex-direction: column; gap: 0.3rem; }
+.form-group label { font-weight: 600; font-size: 0.85rem; color: var(--cms-navy); }
+.form-group input, .form-group select, .form-group textarea { padding: 0.6rem; border: 1px solid var(--cms-border); border-radius: 4px; font-family: inherit; }
+
+/* Para Drag and Drop */
+.card.dragging { opacity: 0.5; border: 2px dashed var(--cms-blue); }
         /* ==========================================================================
            DESIGN SYSTEM & VARIÁVEIS (Swiss Design)
            ========================================================================== */
@@ -179,8 +201,8 @@
             cursor: pointer;
         }
 
-        /* ==========================================================================
-           GRID E CARDS (Notion/Netflix style)
+     /* ==========================================================================
+           GRID E CARDS (PERFORMANCE / FLAT DESIGN)
            ========================================================================== */
         .section-title {
             margin-bottom: 1.5rem;
@@ -193,30 +215,29 @@
 
         .grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-            gap: 2rem;
-            margin-bottom: 4rem;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); /* Cards mais estreitos */
+            gap: 1rem; /* Menos espaço entre eles */
+            margin-bottom: 3rem;
         }
 
         .card {
             background: white;
             border: 1px solid var(--cms-border);
-            border-radius: 6px;
+            border-radius: 4px; /* Bordas menos redondas, mais rápido de renderizar */
             overflow: hidden;
             display: flex;
             flex-direction: column;
-            transition: transform 0.2s, box-shadow 0.2s;
             cursor: pointer;
             position: relative;
+            /* REMOVIDO: transition e box-shadow pesados */
         }
 
         .card:hover {
-            transform: translateY(-4px);
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05);
+            border-color: var(--cms-blue); /* Apenas muda a cor da borda, zero custo de GPU */
         }
 
         .card-thumb {
-            height: 140px;
+            height: 90px; /* Capa bem menor (era 140px) */
             background-color: var(--cms-off);
             display: flex;
             align-items: center;
@@ -239,15 +260,14 @@
 
         .type-badge {
             position: absolute;
-            top: 0.75rem;
-            left: 0.75rem;
+            top: 0.5rem;
+            left: 0.5rem;
             background: var(--cms-navy);
             color: white;
-            font-size: 0.65rem;
-            padding: 0.2rem 0.5rem;
-            border-radius: 3px;
+            font-size: 0.6rem;
+            padding: 0.15rem 0.4rem;
+            border-radius: 2px;
             text-transform: uppercase;
-            letter-spacing: 0.05em;
             font-weight: 600;
         }
 
@@ -257,13 +277,13 @@
 
         .fav-btn {
             position: absolute;
-            top: 0.75rem;
-            right: 0.75rem;
-            background: white;
+            top: 0.5rem;
+            right: 0.5rem;
+            background: rgba(255, 255, 255, 0.9);
             border: 1px solid var(--cms-border);
-            border-radius: 50%;
-            width: 30px;
-            height: 30px;
+            border-radius: 4px;
+            width: 26px;
+            height: 26px;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -274,31 +294,34 @@
         .fav-btn.active { color: var(--cms-yellow); border-color: var(--cms-yellow); }
 
         .card-content {
-            padding: 1.25rem;
+            padding: 0.75rem; /* Menos padding interno */
             flex-grow: 1;
             display: flex;
             flex-direction: column;
         }
 
         .card-title {
-            font-size: 1rem;
-            margin-bottom: 0.5rem;
-            line-height: 1.4;
+            font-size: 0.9rem; /* Fonte um pouco menor */
+            margin-bottom: 0.25rem;
+            line-height: 1.3;
+            white-space: nowrap; /* Impede título de quebrar linha */
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
         .card-meta {
-            font-size: 0.75rem;
+            font-size: 0.7rem;
             color: #6B7280;
-            margin-bottom: 1rem;
+            margin-bottom: 0.5rem;
             display: flex;
             gap: 0.5rem;
             align-items: center;
         }
 
         .card-desc {
-            font-size: 0.85rem;
+            font-size: 0.8rem;
             color: #4B5563;
-            margin-bottom: 1rem;
+            margin-bottom: 0.75rem;
             flex-grow: 1;
             display: -webkit-box;
             -webkit-line-clamp: 2;
@@ -309,16 +332,55 @@
         .card-tags {
             display: flex;
             flex-wrap: wrap;
-            gap: 0.4rem;
+            gap: 0.25rem;
         }
 
         .tag {
             background: var(--cms-off);
             color: #4B5563;
-            font-size: 0.7rem;
-            padding: 0.2rem 0.5rem;
-            border-radius: 3px;
+            font-size: 0.65rem;
+            padding: 0.15rem 0.4rem;
+            border-radius: 2px;
             border: 1px solid var(--cms-border);
+        }
+
+        /* ==========================================================================
+           MODAL / VISUALIZADOR (PERFORMANCE)
+           ========================================================================== */
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            /* REMOVIDO: backdrop-filter: blur(4px) -> O blur é o maior vilão de performance */
+            background: rgba(0, 0, 0, 0.85); /* Trocado por fundo sólido mais escuro */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            display: none; /* Usa display none invés de opacity para não ficar na DOM inativo */
+        }
+
+        .modal-overlay.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            width: 95%; /* Um pouco mais largo */
+            height: 95%;
+            border-radius: 4px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            /* REMOVIDO: Sombras gigantes e animações de scale */
+        }
+        
+        .modal-header {
+            padding: 0.75rem 1rem;
+            border-bottom: 1px solid var(--cms-border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: var(--cms-off);
         }
 
         /* ==========================================================================
@@ -446,13 +508,24 @@
         <!-- MAIN CONTENT -->
         <main class="main-content">
             <header class="header-actions">
-                <h2 id="pageTitle" style="font-size: 2rem; color: var(--cms-navy)">Visão Geral</h2>
-                <select id="sortSelect" class="sort-select">
-                    <option value="recent">Mais Recentes</option>
-                    <option value="az">Ordem Alfabética (A-Z)</option>
-                    <option value="za">Ordem Alfabética (Z-A)</option>
-                </select>
-            </header>
+    <h2 id="pageTitle" style="font-size: 2rem; color: var(--cms-navy)">Visão Geral</h2>
+    
+    <div style="display: flex; gap: 15px; align-items: center;">
+        <div class="view-toggles">
+            <button id="btnGrid" class="view-btn active" title="Ver como Galeria"><i data-lucide="layout-grid"></i></button>
+            <button id="btnList" class="view-btn" title="Ver como Lista"><i data-lucide="list"></i></button>
+        </div>
+        
+        <select id="sortSelect" class="sort-select">
+            <option value="recent">Mais Recentes</option>
+            <option value="az">Ordem Alfabética (A-Z)</option>
+        </select>
+
+        <button id="btnOpenAddModal" style="background: var(--cms-blue); color: white; padding: 8px 16px; border-radius: 4px; display: flex; gap: 8px; font-weight: 600; align-items: center;">
+            <i data-lucide="plus"></i> Novo Link
+        </button>
+    </div>
+</header>
 
             <!-- Seção Destaques -->
             <div id="featuredSection">
@@ -487,6 +560,58 @@
             </div>
         </div>
     </div>
+    <div class="modal-overlay" id="addModal">
+    <div class="modal-content" style="max-width: 600px; height: auto; max-height: 90vh;">
+        <div class="modal-header">
+            <h3>Adicionar Novo Link</h3>
+            <button class="modal-close" id="closeAddModalBtn" title="Fechar"><i data-lucide="x"></i></button>
+        </div>
+        <div class="modal-body" style="padding: 1.5rem; overflow-y: auto; background: white;">
+            
+            <form id="addItemForm">
+                <div class="form-group">
+                    <label>Título *</label>
+                    <input type="text" id="addTitle" required placeholder="Ex: Painel de Controle">
+                </div>
+                <div class="form-group">
+                    <label>URL do Link *</label>
+                    <input type="url" id="addUrl" required placeholder="https://...">
+                </div>
+                
+                <div class="form-group" style="background: #f9fafb; padding: 10px; border-radius: 6px; border: 1px dashed #ccc;">
+                    <label>Capa (Thumbnail) - Cole com Ctrl+V ou Selecione</label>
+                    <div style="display: flex; gap: 10px;">
+                        <input type="text" id="addThumbnail" placeholder="URL da imagem (será preenchido no upload)" readonly style="flex: 1; background: #eee;">
+                        <input type="file" id="addFileInput" accept="image/*" style="display:none">
+                        <button type="button" style="background: white; border: 1px solid #ccc; padding: 0 10px; border-radius: 4px;" onclick="document.getElementById('addFileInput').click()">📁 Arquivo</button>
+                    </div>
+                    <div id="addPreview"></div>
+                </div>
+
+                <div style="display: flex; gap: 1rem;">
+                    <div class="form-group" style="flex: 1;">
+                        <label>Categoria</label>
+                        <input type="text" id="addCategory" placeholder="Ex: Ferramentas">
+                    </div>
+                    <div class="form-group" style="flex: 1;">
+                        <label>Tags (separadas por vírgula)</label>
+                        <input type="text" id="addTags" placeholder="design, web, util">
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label>Descrição breve</label>
+                    <textarea id="addDesc" rows="2"></textarea>
+                </div>
+
+                <button type="submit" id="btnSubmitItem" style="width: 100%; background: var(--cms-navy); color: white; padding: 12px; border-radius: 4px; font-weight: bold; margin-top: 10px;">
+                    Salvar na Planilha
+                </button>
+            </form>
+
+        </div>
+    </div>
+</div>
 
     <script>
         /* ==========================================================================
@@ -643,7 +768,7 @@
                 .join('');
 
             return `
-                <article class="card" onclick="openItem('${item.id}')">
+                <article class="card" draggable="true" onclick="openItem('${item.id}')" ondragstart="handleDragStart.call(this, event)" ondragover="handleDragOver.call(this, event)" ondrop="handleDrop.call(this, event)" ondragend="handleDragEnd.call(this, event)">
                     <button class="fav-btn ${isFav ? 'active' : ''}" onclick="toggleFav(event, '${item.id}')" title="Favoritar">
                         ${favIcon}
                     </button>
@@ -811,6 +936,151 @@
 
         // Boot
         window.addEventListener('DOMContentLoaded', initApp);
+
+/* ==========================================================================
+   LÓGICA NOVA: ADICIONAR ITEM, UPLOAD, VIEW MODE E DRAG & DROP
+   ========================================================================== */
+
+// Sua API 
+const UPLOAD_API_URL = "https://script.google.com/macros/s/AKfycbxuOiqVQgxVXfYu4uXZq5M3SHox83a7ynGEnd4ZKi8ZiA-VP9N54cdQ9KvcLPy-wRvVqg/exec";
+
+// 1. Alternar entre Galeria e Lista
+const mainGrid = document.getElementById('mainGrid');
+document.getElementById('btnGrid').addEventListener('click', () => {
+    mainGrid.classList.remove('list-view');
+    document.getElementById('btnGrid').classList.add('active');
+    document.getElementById('btnList').classList.remove('active');
+});
+document.getElementById('btnList').addEventListener('click', () => {
+    mainGrid.classList.add('list-view');
+    document.getElementById('btnList').classList.add('active');
+    document.getElementById('btnGrid').classList.remove('active');
+});
+
+// 2. Lógica do Modal de Adicionar Item
+document.getElementById('btnOpenAddModal').addEventListener('click', () => {
+    document.getElementById('addModal').classList.add('active');
+});
+document.getElementById('closeAddModalBtn').addEventListener('click', () => {
+    document.getElementById('addModal').classList.remove('active');
+});
+
+// 3. Lógica de Upload de Thumbnail (Agora dentro do Modal)
+async function uploadToDrive(file) {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = async () => {
+        const base64 = reader.result.split(',')[1];
+        const mimeType = file.type;
+        
+        document.getElementById('addThumbnail').value = "Fazendo upload... aguarde.";
+        try {
+            const response = await fetch(UPLOAD_API_URL, {
+                method: 'POST',
+                body: JSON.stringify({ action: 'uploadThumbnail', base64: base64, mimeType: mimeType })
+            });
+            const result = await response.json();
+            if(result.status === 'success') {
+                document.getElementById('addThumbnail').value = result.url;
+                document.getElementById('addPreview').innerHTML = `<img src="${result.url}" style="max-height: 80px; border-radius: 4px; margin-top: 8px;">`;
+            } else {
+                alert("Erro: " + result.message);
+                document.getElementById('addThumbnail').value = "";
+            }
+        } catch (error) {
+            alert("Erro de conexão ao fazer upload.");
+        }
+    };
+}
+
+// Intercepta Ctrl+V quando o modal está aberto
+document.addEventListener('paste', (event) => {
+    if(document.getElementById('addModal').classList.contains('active')) {
+        const items = (event.clipboardData || event.originalEvent.clipboardData).items;
+        for (let index in items) {
+            const item = items[index];
+            if (item.kind === 'file') { uploadToDrive(item.getAsFile()); }
+        }
+    }
+});
+document.getElementById('addFileInput').addEventListener('change', (e) => {
+    if (e.target.files[0]) uploadToDrive(e.target.files[0]);
+});
+
+// 4. Salvar Novo Item na Planilha
+document.getElementById('addItemForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById('btnSubmitItem');
+    btn.textContent = "Salvando..."; btn.disabled = true;
+
+    const newItem = {
+        action: 'addItem',
+        title: document.getElementById('addTitle').value,
+        url: document.getElementById('addUrl').value,
+        thumbnail: document.getElementById('addThumbnail').value,
+        category: document.getElementById('addCategory').value || "Outros",
+        tags: document.getElementById('addTags').value,
+        description: document.getElementById('addDesc').value
+    };
+
+    try {
+        const response = await fetch(UPLOAD_API_URL, {
+            method: 'POST',
+            body: JSON.stringify(newItem)
+        });
+        const result = await response.json();
+        
+        if(result.status === 'success') {
+            alert("Link adicionado com sucesso! A página será atualizada.");
+            window.location.reload(); // Recarrega para puxar dados da planilha atualizados
+        }
+    } catch(err) {
+        alert("Erro ao salvar o item.");
+    } finally {
+        btn.textContent = "Salvar na Planilha"; btn.disabled = false;
+    }
+});
+
+// 5. Lógica de Drag and Drop (Arrastar e Soltar Front-End)
+let dragSrcEl = null;
+
+function handleDragStart(e) {
+    dragSrcEl = this;
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/html', this.outerHTML);
+    this.classList.add('dragging');
+}
+
+function handleDragOver(e) {
+    if (e.preventDefault) { e.preventDefault(); }
+    e.dataTransfer.dropEffect = 'move';
+    return false;
+}
+
+function handleDrop(e) {
+    if (e.stopPropagation) { e.stopPropagation(); }
+    if (dragSrcEl != this) {
+        // Troca a posição dos elementos HTML no Grid
+        this.parentNode.removeChild(dragSrcEl);
+        let dropHTML = e.dataTransfer.getData('text/html');
+        this.insertAdjacentHTML('beforebegin', dropHTML);
+        let dropElem = this.previousSibling;
+        addDragEvents(dropElem);
+    }
+    return false;
+}
+
+function handleDragEnd(e) {
+    this.classList.remove('dragging');
+}
+
+function addDragEvents(elem) {
+    elem.addEventListener('dragstart', handleDragStart, false);
+    elem.addEventListener('dragover', handleDragOver, false);
+    elem.addEventListener('drop', handleDrop, false);
+    elem.addEventListener('dragend', handleDragEnd, false);
+}
+
     </script>
 </body>
 </html>
