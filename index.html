@@ -614,370 +614,179 @@
 </div>
 
     <script>
-        /* ==========================================================================
-           DADOS DE DEMONSTRAÇÃO (Mock Fallback)
-           Caso a API do Google Sheets não esteja configurada ou falhe.
-           ========================================================================== */
-        const MOCK_DATA = [
-            { id: "1", title: "Guia de HTML5", type: "html", url: "https://example.com", thumbnail: "", category: "Desenvolvimento", tags: "web,frontend", featured: true, created_at: "2026-03-24", description: "Referência completa de tags HTML5." },
-            { id: "2", title: "Clean Code", type: "pdf", url: "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf", thumbnail: "", category: "Engenharia", tags: "livro,boas práticas", featured: true, created_at: "2026-03-20", description: "Resumo dos princípios de Clean Code." },
-            { id: "3", title: "Repositório GitHub", type: "link", url: "https://github.com", thumbnail: "https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png", category: "Ferramentas", tags: "git,código", featured: false, created_at: "2026-03-21", description: "Link rápido para repositórios." },
-            { id: "4", title: "Planilha Financeira", type: "doc", url: "#", thumbnail: "", category: "Pessoal", tags: "finanças,excel", featured: false, created_at: "2026-02-15", description: "Template de organização financeira 2026." },
-            { id: "5", title: "Artigo: UI/UX", type: "html", url: "https://example.com", thumbnail: "", category: "Design", tags: "ui,ux,layout", featured: false, created_at: "2026-03-10", description: "Tendências de design minimalista." }
-        ];
-
-        /* ==========================================================================
-           ESTADO DA APLICAÇÃO
-           ========================================================================== */
-        // Substitua pela URL gerada pelo Google Apps Script
-        const API_URL = "https://script.google.com/macros/s/AKfycbxuOiqVQgxVXfYu4uXZq5M3SHox83a7ynGEnd4ZKi8ZiA-VP9N54cdQ9KvcLPy-wRvVqg/exec"; 
-        
-        let db = []; // Todos os itens
-        let favorites = JSON.parse(localStorage.getItem('cms_favorites') || '[]');
-        let history = JSON.parse(localStorage.getItem('cms_history') || '[]'); // Array de IDs
-        
-        let state = {
-            view: 'all', // all, favorites, history
-            category: 'all',
-            type: 'all',
-            search: '',
-            sort: 'recent'
-        };
-
-        /* ==========================================================================
-           INICIALIZAÇÃO
-           ========================================================================== */
-        async function initApp() {
-            lucide.createIcons();
-            
-            try {
-                if (!API_URL) throw new Error("API não configurada. Usando dados locais.");
-                const res = await fetch(API_URL);
-                if(!res.ok) throw new Error("Erro no fetch");
-                db = await res.json();
-            } catch (error) {
-                console.log(error.message);
-                db = MOCK_DATA; // Fallback
-            }
-
-            setupEventListeners();
-            buildSidebar();
-            render();
-            
-            // PWA Service Worker
-            if ('serviceWorker' in navigator && (window.location.protocol === 'http:' || window.location.protocol === 'https:')) {
-                navigator.serviceWorker.register('sw.js')
-                    .catch(e => console.log('SW não registrado neste ambiente:', e.message));
-            }
-        }
-
-        /* ==========================================================================
-           RENDERIZAÇÃO PRINCIPAL
-           ========================================================================== */
-        function render() {
-            let filtered = db.filter(item => {
-                // 1. View (All, Favs, History)
-                if (state.view === 'favorites' && !favorites.includes(item.id)) return false;
-                if (state.view === 'history' && !history.includes(item.id)) return false;
-                
-                // 2. Categoria
-                if (state.category !== 'all' && item.category !== state.category) return false;
-                
-                // 3. Tipo
-                if (state.type !== 'all' && item.type !== state.type) return false;
-                
-                // 4. Busca
-                if (state.search) {
-                    const term = state.search.toLowerCase();
-                    const matchTitle = item.title.toLowerCase().includes(term);
-                    const matchTags = item.tags.toLowerCase().includes(term);
-                    if (!matchTitle && !matchTags) return false;
-                }
-                
-                return true;
-            });
-
-            // Ordenação
-            filtered.sort((a, b) => {
-                if (state.sort === 'recent') return new Date(b.created_at) - new Date(a.created_at);
-                if (state.sort === 'az') return a.title.localeCompare(b.title);
-                if (state.sort === 'za') return b.title.localeCompare(a.title);
-                return 0;
-            });
-
-            // Seção de Destaques (Só aparece na View 'all' sem filtros de texto)
-            const featuredContainer = document.getElementById('featuredSection');
-            if (state.view === 'all' && state.category === 'all' && state.type === 'all' && !state.search) {
-                const featured = filtered.filter(i => i.featured);
-                if (featured.length > 0) {
-                    featuredContainer.style.display = 'block';
-                    document.getElementById('featuredGrid').innerHTML = featured.map(createCardHTML).join('');
-                } else {
-                    featuredContainer.style.display = 'none';
-                }
-            } else {
-                featuredContainer.style.display = 'none';
-            }
-
-            // Grid Principal
-            const mainGrid = document.getElementById('mainGrid');
-            
-            // Se estiver na view de destaques, remover os destaques do grid principal para não duplicar
-            let mainItems = filtered;
-            if (featuredContainer.style.display === 'block') {
-                mainItems = filtered.filter(i => !i.featured);
-            }
-
-            if (mainItems.length === 0) {
-                mainGrid.innerHTML = `
-                    <div class="empty-state">
-                        <i data-lucide="inbox" style="width:48px; height:48px; margin-bottom:1rem; opacity:0.5"></i>
-                        <h3>Nenhum arquivo encontrado</h3>
-                        <p>Tente ajustar seus filtros ou busca.</p>
-                    </div>`;
-            } else {
-                mainGrid.innerHTML = mainItems.map(createCardHTML).join('');
-            }
-            
-            updatePageTitle();
-            lucide.createIcons();
-        }
-
-        /* ==========================================================================
-           CONSTRUÇÃO DE COMPONENTES
-           ========================================================================== */
-        function createCardHTML(item) {
-            const isFav = favorites.includes(item.id);
-            const favIcon = isFav ? '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>' : '<i data-lucide="star"></i>';
-            
-            // Ícone de Fallback baseado no tipo
-            let iconName = 'file';
-            if(item.type === 'pdf') iconName = 'file-text';
-            if(item.type === 'html') iconName = 'globe';
-            if(item.type === 'link') iconName = 'link';
-            if(item.type === 'doc') iconName = 'file-archive';
-
-            const thumbnailHTML = item.thumbnail 
-                ? `<img src="${item.thumbnail}" loading="lazy" alt="${item.title}">`
-                : `<i data-lucide="${iconName}" class="card-fallback-icon" style="width:48px; height:48px;"></i>`;
-
-            const tagsHTML = item.tags.split(',')
-                .map(t => t.trim())
-                .filter(t => t)
-                .map(t => `<span class="tag">${t}</span>`)
-                .join('');
-
-            return `
-                <article class="card" draggable="true" onclick="openItem('${item.id}')" ondragstart="handleDragStart.call(this, event)" ondragover="handleDragOver.call(this, event)" ondrop="handleDrop.call(this, event)" ondragend="handleDragEnd.call(this, event)">
-                    <button class="fav-btn ${isFav ? 'active' : ''}" onclick="toggleFav(event, '${item.id}')" title="Favoritar">
-                        ${favIcon}
-                    </button>
-                    <div class="card-thumb">
-                        <span class="type-badge ${item.type}">${item.type}</span>
-                        ${thumbnailHTML}
-                    </div>
-                    <div class="card-content">
-                        <h3 class="card-title">${item.title}</h3>
-                        <div class="card-meta">
-                            <span>${item.category}</span> • 
-                            <span>${new Date(item.created_at).toLocaleDateString('pt-BR')}</span>
-                        </div>
-                        <p class="card-desc">${item.description}</p>
-                        <div class="card-tags">
-                            ${tagsHTML}
-                        </div>
-                    </div>
-                </article>
-            `;
-        }
-
-        function buildSidebar() {
-            // Extrair categorias únicas
-            const categories = [...new Set(db.map(i => i.category))].sort();
-            const catContainer = document.getElementById('categoryFilters');
-            
-            let html = '<button class="filter-btn active" data-cat="all">Todas as Categorias</button>';
-            categories.forEach(cat => {
-                html += `<button class="filter-btn" data-cat="${cat}">${cat}</button>`;
-            });
-            catContainer.innerHTML = html;
-        }
-
-        function updatePageTitle() {
-            const titleEl = document.getElementById('pageTitle');
-            if(state.view === 'favorites') titleEl.textContent = 'Meus Favoritos';
-            else if(state.view === 'history') titleEl.textContent = 'Acessados Recentemente';
-            else if(state.category !== 'all') titleEl.textContent = `Categoria: ${state.category}`;
-            else titleEl.textContent = 'Visão Geral';
-        }
-
-        /* ==========================================================================
-           INTERAÇÕES & LOGICA
-           ========================================================================== */
-        function setupEventListeners() {
-            // Busca
-            document.getElementById('searchInput').addEventListener('input', (e) => {
-                state.search = e.target.value;
-                render();
-            });
-
-            // Ordenação
-            document.getElementById('sortSelect').addEventListener('change', (e) => {
-                state.sort = e.target.value;
-                render();
-            });
-
-            // Filtros de View (All, Fav, History)
-            document.querySelectorAll('[data-view]').forEach(btn => {
-                btn.addEventListener('click', (e) => {
-                    document.querySelectorAll('[data-view]').forEach(b => b.classList.remove('active'));
-                    e.currentTarget.classList.add('active');
-                    state.view = e.currentTarget.dataset.view;
-                    // Reset outros filtros ao mudar view
-                    state.category = 'all';
-                    state.type = 'all';
-                    updateSidebarUI();
-                    render();
-                });
-            });
-
-            // Filtros de Tipo
-            document.querySelectorAll('[data-type]').forEach(btn => {
-                btn.addEventListener('click', (e) => {
-                    document.querySelectorAll('[data-type]').forEach(b => b.classList.remove('active'));
-                    e.currentTarget.classList.add('active');
-                    state.type = e.currentTarget.dataset.type;
-                    render();
-                });
-            });
-
-            // Filtros de Categoria (Delegação de eventos pois são dinâmicos)
-            document.getElementById('categoryFilters').addEventListener('click', (e) => {
-                if(e.target.tagName === 'BUTTON') {
-                    document.querySelectorAll('[data-cat]').forEach(b => b.classList.remove('active'));
-                    e.target.classList.add('active');
-                    state.category = e.target.dataset.cat;
-                    render();
-                }
-            });
-
-            // Modal
-            document.getElementById('closeModalBtn').addEventListener('click', closeModal);
-        }
-
-        function updateSidebarUI() {
-            document.querySelectorAll('[data-cat]').forEach(b => {
-                b.classList.toggle('active', b.dataset.cat === state.category);
-            });
-            document.querySelectorAll('[data-type]').forEach(b => {
-                b.classList.toggle('active', b.dataset.type === state.type);
-            });
-        }
-
-        function toggleFav(event, id) {
-            event.stopPropagation(); // Evita abrir o modal
-            if(favorites.includes(id)) {
-                favorites = favorites.filter(f => f !== id);
-            } else {
-                favorites.push(id);
-            }
-            localStorage.setItem('cms_favorites', JSON.stringify(favorites));
-            render(); // Re-render para atualizar o ícone
-        }
-
-        function addToHistory(id) {
-            history = history.filter(h => h !== id); // Remove se já existe
-            history.unshift(id); // Adiciona no começo
-            if(history.length > 20) history.pop(); // Limite de 20
-            localStorage.setItem('cms_history', JSON.stringify(history));
-        }
-
-        /* ==========================================================================
-           VISUALIZADOR (MODAL)
-           ========================================================================== */
-        function openItem(id) {
-            const item = db.find(i => i.id === id);
-            if(!item) return;
-
-            addToHistory(id);
-
-            // Ação baseada no tipo
-            if(item.type === 'link') {
-                window.open(item.url, '_blank');
-                return;
-            }
-            if(item.type === 'doc') {
-                // Para documentos genéricos, tenta abrir/baixar
-                window.open(item.url, '_blank');
-                return;
-            }
-
-            // HTML e PDF abrem no Modal
-            document.getElementById('modalTitle').textContent = item.title;
-            document.getElementById('modalExternalLink').href = item.url;
-            
-            const modalBody = document.getElementById('modalBody');
-            
-            if(item.type === 'pdf') {
-                modalBody.innerHTML = `<embed src="${item.url}" type="application/pdf">`;
-            } else if (item.type === 'html') {
-                modalBody.innerHTML = `<iframe src="${item.url}"></iframe>`;
-            }
-
-            document.getElementById('viewerModal').classList.add('active');
-            document.body.style.overflow = 'hidden'; // Evita scroll do fundo
-        }
-
-        function closeModal() {
-            document.getElementById('viewerModal').classList.remove('active');
-            document.body.style.overflow = '';
-            document.getElementById('modalBody').innerHTML = ''; // Limpa iframe para parar vídeos/áudios
-        }
-
-        // Boot
-        window.addEventListener('DOMContentLoaded', initApp);
+       /* ==========================================================================
+   DADOS DE DEMONSTRAÇÃO (Mock Fallback)
+   ========================================================================== */
+const MOCK_DATA = [
+    { id: "1", title: "Guia de HTML5", type: "html", url: "https://example.com", thumbnail: "", category: "Desenvolvimento", tags: "web,frontend", featured: true, created_at: "2026-03-24", description: "Referência completa de tags HTML5." }
+];
 
 /* ==========================================================================
-   LÓGICA NOVA: ADICIONAR ITEM, UPLOAD, VIEW MODE E DRAG & DROP
+   ESTADO DA APLICAÇÃO E CONFIGURAÇÃO
+   ========================================================================== */
+const API_URL = "https://script.google.com/macros/s/AKfycbx0-gMreCrjYUQptwXvp_KCXukQ0KNo6YbPqaUdyeAQVBQYHFKRUe484rroQEcrkZrO9A/exec"; 
+
+let db = []; 
+let favorites = JSON.parse(localStorage.getItem('cms_favorites') || '[]');
+let history = JSON.parse(localStorage.getItem('cms_history') || '[]'); 
+
+let state = {
+    view: 'all',
+    category: 'all',
+    type: 'all',
+    search: '',
+    sort: 'recent'
+};
+
+/* ==========================================================================
+   INICIALIZAÇÃO
+   ========================================================================== */
+async function initApp() {
+    try {
+        const res = await fetch(API_URL);
+        if(!res.ok) throw new Error("Erro no fetch");
+        db = await res.json();
+    } catch (error) {
+        console.log("Usando fallback de dados:", error.message);
+        db = MOCK_DATA;
+    }
+
+    setupEventListeners();
+    buildSidebar();
+    render();
+}
+
+/* ==========================================================================
+   RENDERIZAÇÃO E CARDS (ALTA PERFORMANCE)
+   ========================================================================== */
+function render() {
+    let filtered = db.filter(item => {
+        if (state.view === 'favorites' && !favorites.includes(item.id)) return false;
+        if (state.view === 'history' && !history.includes(item.id)) return false;
+        if (state.category !== 'all' && item.category !== state.category) return false;
+        if (state.type !== 'all' && item.type !== state.type) return false;
+        if (state.search) {
+            const term = state.search.toLowerCase();
+            const matchTitle = item.title.toLowerCase().includes(term);
+            const matchTags = item.tags.toLowerCase().includes(term);
+            if (!matchTitle && !matchTags) return false;
+        }
+        return true;
+    });
+
+    filtered.sort((a, b) => {
+        if (state.sort === 'recent') return new Date(b.created_at) - new Date(a.created_at);
+        if (state.sort === 'az') return a.title.localeCompare(b.title);
+        if (state.sort === 'za') return b.title.localeCompare(a.title);
+        return 0;
+    });
+
+    const mainGrid = document.getElementById('mainGrid');
+
+    if (filtered.length === 0) {
+        mainGrid.innerHTML = `
+            <div class="empty-state">
+                <h3 style="font-size: 3rem; margin-bottom: 1rem; opacity: 0.3;">📭</h3>
+                <h3>Nenhum arquivo encontrado</h3>
+            </div>`;
+    } else {
+        mainGrid.innerHTML = filtered.map(createCardHTML).join('');
+    }
+    
+    updatePageTitle();
+}
+
+function createCardHTML(item) {
+    const isFav = favorites.includes(String(item.id));
+    const favIcon = isFav ? '⭐' : '☆';
+    
+    let typeEmoji = '📄';
+    if(item.type === 'html') typeEmoji = '🌐';
+    if(item.type === 'link') typeEmoji = '🔗';
+
+    const thumbnailHTML = item.thumbnail 
+        ? `<img src="${item.thumbnail}" loading="lazy" alt="${item.title}">`
+        : `<div style="font-size: 3rem; opacity: 0.2;">${typeEmoji}</div>`;
+
+    const tagsHTML = item.tags.split(',')
+        .map(t => t.trim()).filter(t => t)
+        .map(t => `<span class="tag">${t}</span>`).join('');
+
+    // IMPORTANTE: Removido o onclick="openItem()" da tag article. Isso estava quebrando os links!
+    return `
+        <article class="card" draggable="true" ondragstart="handleDragStart.call(this, event)" ondragover="handleDragOver.call(this, event)" ondrop="handleDrop.call(this, event)" ondragend="handleDragEnd.call(this, event)">
+            
+            <div style="position: absolute; top: 0.5rem; right: 0.5rem; display: flex; gap: 5px; z-index: 2;">
+                <button class="fav-btn" onclick="abrirEdicao('${item.id}', event)" title="Editar Item" style="color: var(--cms-blue); font-size: 14px;">✏️</button>
+                <button class="fav-btn" onclick="toggleFav(event, '${item.id}')" title="Favoritar" style="font-size: 14px;">${favIcon}</button>
+            </div>
+
+            <div class="card-thumb" onclick="window.open('${item.url}', '_blank')" style="cursor: pointer;">
+                <span class="type-badge ${item.type}">${item.type}</span>
+                ${thumbnailHTML}
+            </div>
+            
+            <div class="card-content">
+                <h3 class="card-title">
+                    <a href="${item.url}" target="_blank" style="color: inherit; text-decoration: none;">
+                        ${item.title}
+                    </a>
+                </h3>
+                <div class="card-meta">
+                    <span>${item.category}</span> • 
+                    <span>${new Date(item.created_at).toLocaleDateString('pt-BR')}</span>
+                </div>
+                <div class="card-tags">
+                    ${tagsHTML}
+                </div>
+            </div>
+        </article>
+    `;
+}
+
+/* ==========================================================================
+   FUNÇÕES DE EDIÇÃO E UPLOAD
    ========================================================================== */
 
-// Sua API 
-const UPLOAD_API_URL = "https://script.google.com/macros/s/AKfycbxuOiqVQgxVXfYu4uXZq5M3SHox83a7ynGEnd4ZKi8ZiA-VP9N54cdQ9KvcLPy-wRvVqg/exec";
+function abrirEdicao(id, event) {
+    if(event) event.stopPropagation();
+    
+    const item = db.find(i => String(i.id) === String(id));
+    
+    if(!item) {
+        alert("Erro: Não foi possível carregar os dados deste item para edição.");
+        return;
+    }
 
-// 1. Alternar entre Galeria e Lista
-const mainGrid = document.getElementById('mainGrid');
-document.getElementById('btnGrid').addEventListener('click', () => {
-    mainGrid.classList.remove('list-view');
-    document.getElementById('btnGrid').classList.add('active');
-    document.getElementById('btnList').classList.remove('active');
-});
-document.getElementById('btnList').addEventListener('click', () => {
-    mainGrid.classList.add('list-view');
-    document.getElementById('btnList').classList.add('active');
-    document.getElementById('btnGrid').classList.remove('active');
-});
+    document.getElementById('editItemId').value = item.id;
+    document.getElementById('addTitle').value = item.title;
+    document.getElementById('addUrl').value = item.url;
+    document.getElementById('addThumbnail').value = item.thumbnail || "";
+    document.getElementById('addCategory').value = item.category || "";
+    document.getElementById('addTags').value = item.tags || "";
+    document.getElementById('addDesc').value = item.description || "";
+    
+    if(item.thumbnail) {
+        document.getElementById('addPreview').innerHTML = `<img src="${item.thumbnail}" style="max-height: 80px; border-radius: 4px; margin-top: 8px;">`;
+    } else {
+        document.getElementById('addPreview').innerHTML = '';
+    }
 
-// 2. Lógica do Modal de Adicionar Item
-document.getElementById('btnOpenAddModal').addEventListener('click', () => {
+    document.querySelector('#addModal h3').textContent = "Editar Link";
+    document.getElementById('btnSubmitItem').textContent = "Atualizar Planilha";
     document.getElementById('addModal').classList.add('active');
-});
-document.getElementById('closeAddModalBtn').addEventListener('click', () => {
-    document.getElementById('addModal').classList.remove('active');
-});
+}
 
-// 3. Lógica de Upload de Thumbnail (Agora dentro do Modal)
 async function uploadToDrive(file) {
     const reader = new FileReader();
     reader.readAsDataURL(file);
     reader.onload = async () => {
         const base64 = reader.result.split(',')[1];
-        const mimeType = file.type;
-        
         document.getElementById('addThumbnail').value = "Fazendo upload... aguarde.";
         try {
-            const response = await fetch(UPLOAD_API_URL, {
+            const response = await fetch(API_URL, {
                 method: 'POST',
-                body: JSON.stringify({ action: 'uploadThumbnail', base64: base64, mimeType: mimeType })
+                body: JSON.stringify({ action: 'uploadThumbnail', base64: base64, mimeType: file.type })
             });
             const result = await response.json();
             if(result.status === 'success') {
@@ -989,32 +798,29 @@ async function uploadToDrive(file) {
             }
         } catch (error) {
             alert("Erro de conexão ao fazer upload.");
+            document.getElementById('addThumbnail').value = "";
         }
     };
 }
 
-// Intercepta Ctrl+V quando o modal está aberto
 document.addEventListener('paste', (event) => {
     if(document.getElementById('addModal').classList.contains('active')) {
         const items = (event.clipboardData || event.originalEvent.clipboardData).items;
         for (let index in items) {
-            const item = items[index];
-            if (item.kind === 'file') { uploadToDrive(item.getAsFile()); }
+            if (items[index].kind === 'file') uploadToDrive(items[index].getAsFile());
         }
     }
 });
-document.getElementById('addFileInput').addEventListener('change', (e) => {
-    if (e.target.files[0]) uploadToDrive(e.target.files[0]);
-});
 
-// 4. Salvar Novo Item na Planilha
 document.getElementById('addItemForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     const btn = document.getElementById('btnSubmitItem');
-    btn.textContent = "Salvando..."; btn.disabled = true;
+    btn.textContent = "Processando..."; btn.disabled = true;
 
-    const newItem = {
-        action: 'addItem',
+    const itemId = document.getElementById('editItemId').value;
+    const itemData = {
+        action: itemId ? 'editItem' : 'addItem',
+        id: itemId,
         title: document.getElementById('addTitle').value,
         url: document.getElementById('addUrl').value,
         thumbnail: document.getElementById('addThumbnail').value,
@@ -1024,63 +830,136 @@ document.getElementById('addItemForm').addEventListener('submit', async (e) => {
     };
 
     try {
-        const response = await fetch(UPLOAD_API_URL, {
-            method: 'POST',
-            body: JSON.stringify(newItem)
-        });
+        const response = await fetch(API_URL, { method: 'POST', body: JSON.stringify(itemData) });
         const result = await response.json();
-        
         if(result.status === 'success') {
-            alert("Link adicionado com sucesso! A página será atualizada.");
-            window.location.reload(); // Recarrega para puxar dados da planilha atualizados
+            alert(itemId ? "Item atualizado com sucesso!" : "Link adicionado com sucesso!");
+            window.location.reload();
+        } else {
+            alert("Erro na API: " + result.message);
         }
     } catch(err) {
-        alert("Erro ao salvar o item.");
+        alert("Erro de conexão. A planilha não foi atualizada.");
     } finally {
         btn.textContent = "Salvar na Planilha"; btn.disabled = false;
     }
 });
 
-// 5. Lógica de Drag and Drop (Arrastar e Soltar Front-End)
-let dragSrcEl = null;
+/* ==========================================================================
+   OUTRAS FUNÇÕES (UI, Filtros, Drag & Drop)
+   ========================================================================== */
+function buildSidebar() {
+    const categories = [...new Set(db.map(i => i.category))].sort();
+    const catContainer = document.getElementById('categoryFilters');
+    let html = '<button class="filter-btn active" data-cat="all">Todas as Categorias</button>';
+    categories.forEach(cat => { html += `<button class="filter-btn" data-cat="${cat}">${cat}</button>`; });
+    catContainer.innerHTML = html;
+}
 
+function updatePageTitle() {
+    const titleEl = document.getElementById('pageTitle');
+    if(state.view === 'favorites') titleEl.textContent = 'Meus Favoritos';
+    else if(state.view === 'history') titleEl.textContent = 'Acessados Recentemente';
+    else if(state.category !== 'all') titleEl.textContent = `Categoria: ${state.category}`;
+    else titleEl.textContent = 'Visão Geral';
+}
+
+function setupEventListeners() {
+    document.getElementById('searchInput').addEventListener('input', (e) => { state.search = e.target.value; render(); });
+    document.getElementById('sortSelect').addEventListener('change', (e) => { state.sort = e.target.value; render(); });
+    
+    document.querySelectorAll('[data-view]').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            document.querySelectorAll('[data-view]').forEach(b => b.classList.remove('active'));
+            e.currentTarget.classList.add('active');
+            state.view = e.currentTarget.dataset.view;
+            state.category = 'all'; state.type = 'all';
+            document.querySelectorAll('[data-cat], [data-type]').forEach(b => b.classList.remove('active'));
+            render();
+        });
+    });
+
+    document.querySelectorAll('[data-type]').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            document.querySelectorAll('[data-type]').forEach(b => b.classList.remove('active'));
+            e.currentTarget.classList.add('active');
+            state.type = e.currentTarget.dataset.type; render();
+        });
+    });
+
+    document.getElementById('categoryFilters').addEventListener('click', (e) => {
+        if(e.target.tagName === 'BUTTON') {
+            document.querySelectorAll('[data-cat]').forEach(b => b.classList.remove('active'));
+            e.target.classList.add('active');
+            state.category = e.target.dataset.cat; render();
+        }
+    });
+
+    document.getElementById('btnGrid').addEventListener('click', () => {
+        document.getElementById('mainGrid').classList.remove('list-view');
+        document.getElementById('btnGrid').classList.add('active');
+        document.getElementById('btnList').classList.remove('active');
+    });
+    document.getElementById('btnList').addEventListener('click', () => {
+        document.getElementById('mainGrid').classList.add('list-view');
+        document.getElementById('btnList').classList.add('active');
+        document.getElementById('btnGrid').classList.remove('active');
+    });
+
+    document.getElementById('btnOpenAddModal').addEventListener('click', () => {
+        document.getElementById('addItemForm').reset();
+        document.getElementById('editItemId').value = ""; 
+        document.getElementById('addPreview').innerHTML = "";
+        document.querySelector('#addModal h3').textContent = "Adicionar Novo Link";
+        document.getElementById('btnSubmitItem').textContent = "Salvar na Planilha";
+        document.getElementById('addModal').classList.add('active');
+    });
+    
+    document.getElementById('closeAddModalBtn').addEventListener('click', () => {
+        document.getElementById('addModal').classList.remove('active');
+    });
+    
+    if(document.getElementById('addFileInput')) {
+        document.getElementById('addFileInput').addEventListener('change', (e) => {
+            if (e.target.files[0]) uploadToDrive(e.target.files[0]);
+        });
+    }
+}
+
+function toggleFav(event, id) {
+    event.stopPropagation(); 
+    const strId = String(id);
+    if(favorites.includes(strId)) favorites = favorites.filter(f => f !== strId);
+    else favorites.push(strId);
+    localStorage.setItem('cms_favorites', JSON.stringify(favorites));
+    render(); 
+}
+
+let dragSrcEl = null;
 function handleDragStart(e) {
     dragSrcEl = this;
     e.dataTransfer.effectAllowed = 'move';
     e.dataTransfer.setData('text/html', this.outerHTML);
     this.classList.add('dragging');
 }
-
-function handleDragOver(e) {
-    if (e.preventDefault) { e.preventDefault(); }
-    e.dataTransfer.dropEffect = 'move';
-    return false;
-}
-
+function handleDragOver(e) { if (e.preventDefault) e.preventDefault(); e.dataTransfer.dropEffect = 'move'; return false; }
 function handleDrop(e) {
-    if (e.stopPropagation) { e.stopPropagation(); }
+    if (e.stopPropagation) e.stopPropagation();
     if (dragSrcEl != this) {
-        // Troca a posição dos elementos HTML no Grid
         this.parentNode.removeChild(dragSrcEl);
-        let dropHTML = e.dataTransfer.getData('text/html');
-        this.insertAdjacentHTML('beforebegin', dropHTML);
+        this.insertAdjacentHTML('beforebegin', e.dataTransfer.getData('text/html'));
         let dropElem = this.previousSibling;
-        addDragEvents(dropElem);
+        dropElem.addEventListener('dragstart', handleDragStart, false);
+        dropElem.addEventListener('dragover', handleDragOver, false);
+        dropElem.addEventListener('drop', handleDrop, false);
+        dropElem.addEventListener('dragend', handleDragEnd, false);
     }
     return false;
 }
+function handleDragEnd(e) { this.classList.remove('dragging'); }
 
-function handleDragEnd(e) {
-    this.classList.remove('dragging');
-}
-
-function addDragEvents(elem) {
-    elem.addEventListener('dragstart', handleDragStart, false);
-    elem.addEventListener('dragover', handleDragOver, false);
-    elem.addEventListener('drop', handleDrop, false);
-    elem.addEventListener('dragend', handleDragEnd, false);
-}
-
+// Boot
+window.addEventListener('DOMContentLoaded', initApp);
     </script>
 </body>
 </html>
